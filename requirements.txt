@@ -43,3 +43,9 @@ ipyleaflet
 # Python: plotting libraries (optional)
 plotly>=5,<6
 bqplot
+
+# requirements for amc view
+pint
+pandas
+ipywidgets
+openpyxl
