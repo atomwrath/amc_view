@@ -1,6 +1,6 @@
 # Menu View with JupyterLite
 
-This project creates a user interface for viewing and interacting with menu data using JupyterLite.
+This project aims to creates a user interface for viewing and interacting with menu data using JupyterLite and ipywidgets.
 
 ## Project Description
 
