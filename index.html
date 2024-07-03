@@ -1,25 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMC Ingredient View</title>
-    <script src="https://unpkg.com/@jupyterlite/iframe-extension@0.1.0/dist/index.js"></script>
-</head>
-<body>
-    <iframe id="jupyterlite-iframe" src="https://atomwrath.github.io/amc_view/?path=notebooks/amc_menu_view.ipynb" width="100%" height="800px"></iframe>
-
-    <script>
-        document.getElementById('jupyterlite-iframe').onload = function() {
-            const iframe = document.getElementById('jupyterlite-iframe').contentWindow;
-            iframe.addEventListener('jupyterlite-ready', () => {
-                const nbApp = iframe.jupyter.notebookApp;
-                nbApp.session.ready.then(() => {
-                    const notebook = nbApp.session.notebook;
-                    notebook.executeAllCells();
-                });
-            });
-        };
-    </script>
-</body>
+<html>
+  <head>
+    <title>amc view</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.21.3/full/pyodide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+  </head>
+  <body>
+    <script src="./scripts/main.js" type="module"></script>
+  </body>
 </html>
