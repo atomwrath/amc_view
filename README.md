@@ -9,6 +9,6 @@ This project uses JupyterLite to create a user-friendly interface for exploring 
 ## Files
 
 - `amc_menu_view.py`: User interface to view recipe/menu data.
-- 'amc_menucost_code.py': User interface to edit and view recipe/menu data.
+- `amc_menucost_code.py`: User interface to edit and view recipe/menu data.
 - `df_functions.py`: Includes helper functions for data manipulation.
 - user supplys a menu database ('amc_menu_database.xlsx')
