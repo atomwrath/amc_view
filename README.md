@@ -1,10 +1,10 @@
-# Menu View with JupyterLite
+# A Recipe/Menu UI with JupyterLite
 
-This project aims to creates a user interface for viewing and interacting with menu data using JupyterLite and ipywidgets.
+This project aims to creates a user interface for viewing and interacting with recipe/menu data using JupyterLite and ipywidgets.
 
 ## Project Description
 
-This project uses JupyterLite to create a user-friendly interface for exploring the menu ingredients. The interface allows users to search and view recipe ingredients and major allergens.
+This project uses JupyterLite to create a user-friendly interface for exploring the recipe/menu ingredients. The interface allows users to search and view recipe ingredients and major allergens.
 
 ## Files
 
