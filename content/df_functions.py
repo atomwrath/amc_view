@@ -7,7 +7,11 @@ from datetime import datetime
 
 # globals...
 ureg = UnitRegistry()
+# Define aliases to avoid the centisecond issue
+ureg.define('count = []')  # Define count as dimensionless
+ureg.define('ct = count')  # Explicitly define ct as count, overriding the centisecond
 Q_ = ureg.Quantity
+
 printon = False
 
 def maybeprint(*mymess):
@@ -87,7 +91,7 @@ class CostCalculator:
             if isinstance(price, str):
                 price = float(price.strip('$'))
             if (price <= 0):
-                maybeprint(f"!!! no price for: {nick}")
+                maybeprint(f"!!! no price for: {myingr}")
             if (r['unit'] in ['lb', 'LB', 'Lb']):
                 quant = Q_('1 lb')
                 
@@ -143,15 +147,40 @@ class CostCalculator:
         '''
         self.costdf.loc[(self.costdf['item'] == item) & (self.costdf['ingredient'] == ingredient),
             column_name] = value
+        
+        def set_item_ingredient(self, item, ingredient, column_name, value):
+            ''' set a value for specified column (column_name) for (unique) entry
+                which matches 'item' == item, 'ingredient' == ingredient
+            '''
+            # If the column is 'cost' or contains 'cost' in its name, ensure it's float type
+            if column_name == 'cost' or 'cost' in column_name.lower():
+                # First convert the column to float if it's not already
+                if self.costdf[column_name].dtype != 'float64':
+                    self.costdf[column_name] = self.costdf[column_name].astype('float64')
+                
+                # Ensure the value is float
+                if not isinstance(value, float) and value is not None:
+                    try:
+                        value = float(value)
+                    except (ValueError, TypeError):
+                        print(f"Warning: Could not convert value '{value}' to float for column '{column_name}'")
+            
+            # Now set the value
+            self.costdf.loc[(self.costdf['item'] == item) & (self.costdf['ingredient'] == ingredient),
+                column_name] = value
 
     def get_simple_ingredient_cost(self, inick, iquant):
-        ''' get cost from the price guide
-        '''
+        ''' get cost from the price guide, using weighted average if possible '''
         cdf = self.get_cost_df(inick, iquant)
         if cdf.empty:
             return 0
-        cost = np.mean(self.cost_picker(cdf)['mycost'])
-        # do we really want to set cost?
+        
+        # Get selected costs using the cost picker
+        selected_costs = self.cost_picker(cdf)
+        
+        # Calculate weighted cost
+        cost = calculate_weighted_cost(selected_costs)
+        
         return cost
     
     def find_nick(self, inick):
@@ -235,6 +264,7 @@ class CostCalculator:
                     else:
                         if isinstance(recipe_entry['conversion'], str):
                             conv = parse_unit_conversion(recipe_entry['conversion'])
+                            print(conv)
                             cost, myconv = quantity_cost_and_conv(
                                 recipe_cost/recipe_quant, myquant, conv)
                             if (cost < 0):
@@ -427,7 +457,11 @@ class CostCalculator:
         #excel_data = pd.read_excel(filepath, sheet_name=None)
 
         # load unified price guide
-        self.uni_g = excel_data[self.guide_sheet_name]
+        if (self.guide_sheet_name in excel_data.keys()):
+            self.uni_g = excel_data[self.guide_sheet_name]
+        else:
+            print('cant find guide sheet')
+            return
         
         self.uni_g.columns = self.guide_columns
         # if the first row is just the names of the columns, remove, reset index at 0
@@ -464,7 +498,7 @@ class CostCalculator:
         
         # rename cost column so it is separate from, (not overwritten by) calculations
         self.costdf = self.costdf.rename(columns={'cost': 'saved cost'})
-        self.costdf.loc[:, 'cost'] = 0
+        self.costdf.loc[:, 'cost'] = 0.0
         
 
     def write_cc(self, filename):
@@ -637,8 +671,8 @@ class CostCalculator:
         q = parse_quant(row['quantity'])
         if q.m <= 0:
             return row
-        cpq = Q_(cl.iloc[0]['$/quantity'])
-        conv = Q_(cl.iloc[0]['myconversion'])
+        cpq = Q_(cl.iloc[0]['$/quantity'].replace('ct','count'))
+        conv = Q_(cl.iloc[0]['myconversion'].replace('ct', 'count'))
         row['equ quant'] = ''
         if type(q) in (int, float):
             return row
@@ -895,7 +929,20 @@ def get_cost_wconv(myrow, comunit, convers):
         return c/comunit
     else:
         return cost
-
+def pick_most_recent_cost(df):
+    ''' return the entries of 2 most recent dates from the price guide
+    '''
+    if len(df) > 1:
+        # sorted_df = df.sort_values(by='date', ascending=False, ignore_index=True)
+        # return sorted_df.loc[0:1,:]
+    
+        sdf = df.sort_values(by='date', ascending=False, ignore_index=True)
+        alldates = list(sdf['date'].unique())
+        dates = alldates[0:min(2,len(alldates))]
+        return sdf.loc[sdf['date'].isin(dates)]
+    else:
+        return df
+    
 def pick_recent_cost(df):
     ''' return the entries of 2 most recent dates from the price guide
     '''
@@ -997,7 +1044,9 @@ def parse_size(sizestr):
         sizestr = sizestr.replace(*r)
     sizestr = sizestr.replace('**', '*')
     try:
-        size = Q_(sizestr)
+        size = Q_(sizestr.replace('ct', 'count'))
+        if size.units == ureg.cs:
+            print(f'bad size: {sizestr} {size}')
         return size
     except:
         return Q_('1')
@@ -1031,8 +1080,7 @@ def quantity_cost_and_conv(cpq, myq, conversion):
         if necessary use conversion to get compatible units
         example conversion: <1 cup>/<120 g>
     '''
-    #if myq.m == 0:
-    #    return 0, 1
+        
     cost = (cpq*myq).to_reduced_units()
     # cost should be dimensionless if compatible units were used
     if not cost.dimensionless:
@@ -1060,8 +1108,8 @@ def parse_conversion(conv_str):
         conv_str = '; '.join(conv_str)
             
     if type(conv_str) == str:
+        conv_str = conv_str.replace('ct', 'count')
         for oneconv in conv_str.split(';'):
-            oneconv = oneconv.replace('ct', 'count')
             if 'per' in oneconv:
                 v,m = oneconv.split('per')
                 v = Q_(v)
@@ -1078,8 +1126,8 @@ def parse_unit_conversion(conv_str):
         conv_str = '; '.join(conv_str)
             
     if type(conv_str) == str:
+        conv_str = conv_str.replace('ct', 'count')
         for oneconv in conv_str.split(';'):
-            oneconv = oneconv.replace('ct', 'count')
             if 'per' in oneconv:
                 v,m = oneconv.split('per')
                 v = Q_(v)
@@ -1213,5 +1261,43 @@ def add_netprofit(xdf, mult):
         xdf.loc[:, name] = xdf['menu price'] - xdf['cost']*mult
     return xdf
     
+def calculate_weighted_cost(cost_df):
+    '''
+    Calculate weighted average cost based on the 'order' column.
+    Attempts to convert order values to float regardless of their original type.
+    If 'order' is not present or conversion fails, uses a weight of 1.
+    Allows zero weights (0) in the calculation.
+    
+    Args:
+        cost_df: DataFrame with price and order information
+    
+    Returns:
+        float: The weighted average cost
+    '''
+    if 'order' not in cost_df.columns:
+        # Fall back to simple average if order column doesn't exist
+        return cost_df['mycost'].mean()
+    
+    # Create a new weights column, converting to float where possible
+    weights = []
+    for val in cost_df['order']:
+        try:
+            # Try to convert to float regardless of type
+            weight = float(val) if val is not None else 1.0
+            weights.append(weight)
+        except:
+            # If conversion fails, use weight of 1
+            weights.append(1.0)
+    
+    # Apply the weights to the mycost values
+    weighted_values = [cost * weight for cost, weight in zip(cost_df['mycost'], weights)]
+    total_weight = sum(weights)
+    
+    if total_weight > 0:
+        # If we have positive weights, calculate weighted average
+        return sum(weighted_values) / total_weight
+    else:
+        # If all weights are zero, fall back to simple average
+        return cost_df['mycost'].mean()
     
 ureg.Quantity.format_babel = my_format_babel
