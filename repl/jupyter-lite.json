@@ -6,6 +6,9 @@
         "jupyterlab-kernel-spy",
         "jupyterlab-tour"
       ]
+    "disableRightSidebar": true,
+    "initiallyLoadSidebar": false,
+    "sidebarVisible": false
     }
   }
   
